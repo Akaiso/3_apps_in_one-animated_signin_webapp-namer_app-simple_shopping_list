@@ -4,17 +4,17 @@ import 'package:english_words/english_words.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-void main(){
- return runApp(MyApp());
+void main() {
+  return runApp(MyApp());
 }
 
-class MyApp extends StatelessWidget{
+class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context){
+  Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create:(context)=>MyAppState(),
+      create: (context) => MyAppState(),
       child: MaterialApp(
         title: 'Namer APP',
         theme: ThemeData(
@@ -29,89 +29,192 @@ class MyApp extends StatelessWidget{
 
 class MyAppState extends ChangeNotifier {
   var current = WordPair.random();
-  void getNext(){
+  void getNext() {
     current = WordPair.random();
     notifyListeners();
   }
-  var favorites = <WordPair>[];
 
-  void toggleFavorite(){
-    if(favorites.contains(current)){
+   var favorites = <WordPair>[];
+
+  void toggleFavorite() {
+    if (favorites.contains(current)) {
       favorites.remove(current);
-    }else {
+    } else {
       favorites.add(current);
     }
     notifyListeners();
   }
 }
 
-class MyHomePage extends StatelessWidget {
+class MyHomePage extends StatefulWidget {
+  @override
+  State<MyHomePage> createState() => _MyHomePageState();
+}
+
+class _MyHomePageState extends State<MyHomePage> {
+  var selectedIndex = 0;
+  @override
+  Widget build(BuildContext context) {
+    Widget page;
+    switch (selectedIndex) {
+      case 0:
+        page = GeneratorPage();
+        break;
+      case 1:
+        page = FavoritesPage();
+        break;
+      default:
+        throw UnimplementedError('no widget for selectedIndex');
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraint) {
+        return SafeArea(
+          child: Scaffold(
+            body: Row(
+              children: [
+                SafeArea(
+                    child: NavigationRail(
+                        extended: constraint.maxWidth >= 600,
+                        destinations: [
+                          NavigationRailDestination(
+                            icon: Icon(Icons.home),
+                            label: Text('Home'),
+                          ),
+                          NavigationRailDestination(
+                              icon: Icon(Icons.favorite), label: Text('Favorites'))
+                        ],
+                        selectedIndex: selectedIndex,
+                        onDestinationSelected: (value) {
+                          setState(() {
+                            selectedIndex = value;
+                          });
+                        })),
+                Expanded(
+                  child: Container(
+                    color: Theme.of(context).colorScheme.primaryContainer,
+                    child: page,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+    );
+  }
+}
+
+class GeneratorPage extends StatelessWidget {
+  const GeneratorPage({super.key});
+
   @override
   Widget build(BuildContext context) {
     var appState = context.watch<MyAppState>();
     var pair = appState.current;
 
     IconData icon;
-    if(appState.favorites.contains(pair)){
+    if (appState.favorites.contains(pair)) {
       icon = Icons.favorite;
-    }else{
+    } else {
       icon = Icons.favorite_border;
     }
-
-    return SafeArea(
-      child: Scaffold(
-        body: Padding(
-          padding: const EdgeInsets.only(left: 20.0),
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                SizedBox(height: 30),
-               // Text('A random AWESOME idea:'),
-                BigCard(pair: pair),
-                SizedBox(height: 20),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    ElevatedButton.icon(onPressed: ()=> appState.toggleFavorite(), label: Text('like'), icon: Icon(icon),),
-                    SizedBox(width: 20),
-                    ElevatedButton(onPressed:()=> appState.getNext(), child: Text('Next')),
-                  ],
-                )
-              ],
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        SizedBox(height: 30),
+        // Text('A random AWESOME idea:'),
+        BigCard(pair: pair),
+        SizedBox(height: 20),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ElevatedButton.icon(
+              onPressed: () => appState.toggleFavorite(),
+              label: Text('like'),
+              icon: Icon(icon),
             ),
-          ),
+            SizedBox(width: 20),
+            ElevatedButton(
+                onPressed: () => appState.getNext(), child: Text('Next')),
+          ],
+        )
+      ],
+    );
+  }
+}
+
+class BigCard extends StatelessWidget {
+  const BigCard({Key? key, required this.pair}) : super(key: key);
+  final WordPair pair;
+
+  ///for screen readers to pronounce words more correctly. us the semantic label as below. this is
+  ///necessary should there be a word as cheaphead, the screen reader may pronounce the ph as ef
+  @override
+  Widget build(BuildContext context) {
+    var theme = Theme.of(context);
+    var style = theme.textTheme.displayMedium!.copyWith(
+      color: theme.colorScheme.onPrimary,
+    );
+    return Card(
+      color: theme.colorScheme.primary,
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Text(
+          pair.asLowerCase,
+          style: style,
+          semanticsLabel: pair.asPascalCase,
         ),
       ),
     );
   }
 }
 
-class BigCard extends StatelessWidget {
-  const BigCard({
-    Key? key, required this.pair
-  }) : super(key: key);
-  final WordPair pair;
 
-///for screen readers to pronounce words more correctly. us the semantic label as below. this is
-///necessary should there be a word as cheaphead, the screen reader may pronounce the ph as ef
+class FavoritesPage extends StatelessWidget {
+  const FavoritesPage({super.key});
+
   @override
   Widget build(BuildContext context) {
-    var theme = Theme.of(context);
-    var style = theme.textTheme.displayMedium!.copyWith(color: theme.colorScheme.onPrimary,);
-    return Card(
-      color: theme.colorScheme.primary,
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Text(pair.asLowerCase, style: style,
-        semanticsLabel: pair.asPascalCase ,),
-      ),
+    var appState = context.watch<MyAppState>();
+
+    if(appState.favorites.isEmpty){
+      return Center(
+        child: Text('No favorites yet.'),
+      );
+    }
+
+
+    return ListView(
+      children: [
+        Padding(padding: EdgeInsets.all(20), child: Text('You have ${appState.favorites.length} favorites:'),),
+        for(var pair in appState.favorites)
+        ListTile(
+          leading: Icon(Icons.favorite),
+          title: Text(pair.asLowerCase),
+        )
+      ],
     );
   }
 }
 
 
+///MY WAY
+// class FavoritesPage extends StatelessWidget {
+//   const FavoritesPage({super.key});
 
+//   @override
+//   Widget build(BuildContext context) {
+//       var appState = context.watch<MyAppState>();
+//       var namePair = appState.favorites.map((e) => e).toList();
+//     return ListView.builder(
+//       itemCount: namePair.length,
+//       itemBuilder:(context, index) {
+//         return ListTile(leading: Icon(Icons.favorite), title: Text('${namePair[index]}'),);
+//       },
+//     );
+//   }
+// }
 
 
 
